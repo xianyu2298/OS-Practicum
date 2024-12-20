@@ -2,47 +2,49 @@ import java.io.*;
 import java.util.*;
 
 class PCB {
-    String pName; // 进程名称
-    String pRemark; // 备注
-    String pStatus; // 状态
-    int createTime; // 创建时间
-    int runTime; // 运行时间
-    int grade; // 优先级
-    int startTime; // 开始时间
-    int completeTime; // 完成时间
-    int turnoverTime; // 周转时间
-    double weightedTurnoverTime; // 带权周转时间
-    int originalRunTime; // 原始运行时间
-    PCB(String pName, int createTime, int runTime, int grade, String pRemark) {
-        this.pName = pName;
-        this.createTime = createTime;
-        this.runTime = runTime;
-        this.originalRunTime = runTime; // 记录原始运行时间
-        this.grade = grade;
-        this.pRemark = pRemark;
-        this.pStatus = "等待";
-        this.startTime = -1;
-    }
+    // 成员变量定义，描述进程的各种属性
+    String pName; // 进程名称，例如 "P1"、"P2"
+    String pRemark; // 备注，通常是描述性信息或程序名
+    String pStatus; // 进程状态，例如 "等待"、"运行"、"完成"
+    int createTime; // 创建时间，表示进程进入系统的时间
+    int runTime; // 运行时间，表示进程需要的总运行时间
+    int grade; // 优先级，用于调度算法，值越大可能优先级越高
+    int startTime; // 开始时间，表示进程实际开始运行的时间
+    int completeTime; // 完成时间，表示进程实际完成运行的时间
+    int turnoverTime; // 周转时间，从进程创建到完成所经历的总时间（完成时间 - 创建时间）
+    double weightedTurnoverTime; // 带权周转时间 = 周转时间 / 运行时间，反映运行效率
+    int originalRunTime; // 原始运行时间，记录进程的初始运行时间，用于计算周转时间和调度
 
+    PCB(String pName, int createTime, int runTime, int grade, String pRemark) {
+        this.pName = pName; // 设置进程名称
+        this.createTime = createTime; // 设置进程创建时间
+        this.runTime = runTime; // 设置进程的运行时间
+        this.originalRunTime = runTime; // 初始化时记录原始运行时间，便于后续计算
+        this.grade = grade; // 设置进程的优先级
+        this.pRemark = pRemark; // 设置备注信息，例如与进程相关的附加说明
+        this.pStatus = "等待"; // 初始化时将进程状态设置为“等待”
+        this.startTime = -1; // 初始化时未开始运行，将开始时间设为 -1（表示未设置）
+    }
 }
 
-public class CPUScheduling {
 
-    private static final List<PCB> processList = new ArrayList<>();
-    private static double pageSize = 2.2;
-    private static int timeSlice = 25;
+public class CPUScheduling {
+    // 静态变量，存储进程列表、页面大小和时间片长度
+    private static final List<PCB> processList = new ArrayList<>();// 存储所有进程的列表
+    private static double pageSize = 2.2;// 默认页面大小，单位 KB
+    private static int timeSlice = 25;// 默认时间片长度，单位 ms
 
 
 
     static class PageManager {
-        private final double pageSize;
-        private final int maxPages;
-        private final LinkedList<Integer> fifoPages;
-        private final Map<Integer, Integer> lruPages;
+        private final double pageSize; // 页面大小
+        private final int maxPages; // 最大页面数量
+        private final LinkedList<Integer> fifoPages; // 用于FIFO页面置换算法的链表
+        private final Map<Integer, Integer> lruPages; // 用于LRU页面置换算法的映射
         private final List<String> log; // 存储页面置换的日志记录
-        private int pageFaults; // 页面错误次数
+        private int pageFaults; // 页面错误次数（缺页次数）
         private int pageHits; // 页面命中次数
-
+        // 构造函数，初始化页面管理工具
         PageManager(double pageSize, int maxPages) {
             this.pageSize = pageSize;
             this.maxPages = maxPages;
@@ -53,25 +55,31 @@ public class CPUScheduling {
             this.pageHits = 0;
         }
 
+        // FIFO页面置换算法
         public void fifoReplace(int page) {
+            // 如果页面已经在内存中，命中次数加1，记录命中日志
             if (fifoPages.contains(page)) {
                 pageHits++;
                 log.add("FIFO: 页面 " + page + " 已经在内存中 (命中)");
                 displayMemoryState(); // 实时显示内存状态
                 return;
             }
-
+            // 页面不在内存中，发生缺页
             pageFaults++;
             if (fifoPages.size() >= maxPages) {
+                // 如果内存已满，移除最先进入的页面（FIFO）
                 int removed = fifoPages.removeFirst();
                 log.add("FIFO: 页面 " + removed + " 被移除");
             }
+            // 将新页面加载到内存中
             fifoPages.add(page);
             log.add("FIFO: 页面 " + page + " 被加载");
             displayMemoryState(); // 实时显示内存状态
         }
 
+        // LRU页面置换算法
         public void lruReplace(int page, int currentTime) {
+            // 如果页面已经在内存中，命中次数加1，更新最近使用时间
             if (lruPages.containsKey(page)) {
                 pageHits++;
                 lruPages.put(page, currentTime); // 更新页面最近使用时间
@@ -79,34 +87,41 @@ public class CPUScheduling {
                 displayMemoryState(); // 实时显示内存状态
                 return;
             }
-
+            // 页面不在内存中，发生缺页
             pageFaults++;
             if (lruPages.size() >= maxPages) {
+                // 如果内存已满，移除最近最少使用的页面
                 int lruPage = Collections.min(lruPages.entrySet(), Map.Entry.comparingByValue()).getKey();
                 lruPages.remove(lruPage);
                 log.add("LRU: 页面 " + lruPage + " 被移除");
             }
+            // 将新页面加载到内存中，记录当前时间
             lruPages.put(page, currentTime);
             log.add("LRU: 页面 " + page + " 被加载");
             displayMemoryState(); // 实时显示内存状态
         }
 
+        // 返回日志记录
         public List<String> getLog() {
             return log;
         }
 
+        // 获取页面错误次数
         public int getPageFaults() {
             return pageFaults;
         }
 
+        // 获取页面命中次数
         public int getPageHits() {
             return pageHits;
         }
 
+        // 计算页面命中率
         public double getHitRate() {
             return (pageHits + pageFaults) == 0 ? 0 : (double) pageHits / (pageHits + pageFaults);
         }
 
+        // 显示当前内存状态
         public void displayMemoryState() {
             System.out.println("当前内存状态:");
             System.out.print("|");
@@ -127,290 +142,466 @@ public class CPUScheduling {
 
     }
 
-
+    // 加载进程信息，从文件读取并创建PCB对象
     public static void loadProcesses(Map<String, Integer> runTimes) {
+        // 使用 try-with-resources 确保 BufferedReader 在使用后自动关闭
         try (BufferedReader reader = new BufferedReader(new FileReader("Process.txt"))) {
-            String line;
+            String line; // 用于存储每行读取的内容
+
+            // 按行读取文件内容
             while ((line = reader.readLine()) != null) {
+                // 将当前行按照制表符（\t）分割成多个部分
                 String[] parts = line.split("\t");
+
+                // 如果当前行的分割部分少于 4，则说明格式不符合要求，打印错误信息并跳过
                 if (parts.length < 4) {
                     System.err.println("无效的行格式: " + line);
-                    continue;
+                    continue; // 处理下一行
                 }
+
+                // 使用 try 块处理行中可能出现的数字解析异常
                 try {
-                    String pName = parts[0].trim(); // 进程名
-                    int createTime = Integer.parseInt(parts[1].trim()); // 创建时间
-                    int grade = Integer.parseInt(parts[2].trim()); // 优先级
-                    String pRemark = parts[3].trim(); // 备注（程序名）
+                    // 从分割后的数组中提取各个字段
+                    String pName = parts[0].trim(); // 进程名，去除首尾空格
+                    int createTime = Integer.parseInt(parts[1].trim()); // 创建时间，解析为整数
+                    int grade = Integer.parseInt(parts[2].trim()); // 优先级，解析为整数
+                    String pRemark = parts[3].trim(); // 备注（程序名），去除首尾空格
 
-                    // 标准化程序名以匹配 runTimes 中的键
-                    String standardizedProgramName = pRemark.replace("程序", "") + "程序"; // 将"程序A"标准化为"A程序"
+                    // 标准化程序名，将“程序A”转换为“A程序”以便匹配 runTimes 键
+                    String standardizedProgramName = pRemark.replace("程序", "") + "程序";
 
-                    // 从 runTimes 中获取运行时间，如果没有，则设置为默认值 10
+                    // 从 runTimes Map 中查找标准化程序名对应的运行时间
+                    // 如果未找到对应键，打印警告并使用默认运行时间 10
                     if (!runTimes.containsKey(standardizedProgramName)) {
                         System.err.printf("警告: 未找到程序 %s 的运行时间，使用默认值 10\n", standardizedProgramName);
                     }
-                    int runTime = runTimes.getOrDefault(standardizedProgramName, 10);
+                    int runTime = runTimes.getOrDefault(standardizedProgramName, 10); // 获取运行时间或使用默认值
 
-                    // 添加进程到列表
+                    // 创建一个新的 PCB 对象（表示一个进程）并添加到 processList 列表中
                     processList.add(new PCB(pName, createTime, runTime, grade, pRemark));
+
                 } catch (NumberFormatException e) {
+                    // 如果某个数字字段解析失败，打印错误信息和出错行
                     System.err.println("数字解析失败: " + line + " - 错误信息: " + e.getMessage());
                 }
             }
         } catch (IOException e) {
+            // 如果文件读取过程中出现 IO 异常，打印堆栈信息
             e.printStackTrace();
         }
     }
-    public static Map<String, Map<String, Double>> loadPrograms() {
-        Map<String, Map<String, Double>> programs = new HashMap<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader("program.txt"))) {
-            String line;
-            String currentProgram = null;
-            Map<String, Double> functions = null;
 
+
+    //加载程序
+    public static Map<String, Map<String, Double>> loadPrograms() {
+        // 定义一个 Map，用于存储所有程序和其对应的函数及大小。
+        // 外层 Map 的 key 是程序名，value 是一个 Map，该 Map 的 key 是函数名，value 是函数的大小（单位：KB）。
+        Map<String, Map<String, Double>> programs = new HashMap<>();
+
+        // 使用 try-with-resources 语法打开文件 program.txt，确保文件流会在使用完毕后自动关闭。
+        try (BufferedReader reader = new BufferedReader(new FileReader("program.txt"))) {
+            String line; // 每次读取的文件行
+            String currentProgram = null; // 当前程序名
+            Map<String, Double> functions = null; // 当前程序的函数名和大小映射
+
+            // 循环逐行读取文件内容
             while ((line = reader.readLine()) != null) {
+                // 去掉当前行的首尾空白字符
                 line = line.trim();
+
+                // 如果当前行是程序名的定义（以 "文件名" 开头）
                 if (line.startsWith("文件名")) {
+                    // 如果已经读取了一个程序的函数列表，将其保存到主 Map 中
                     if (currentProgram != null && functions != null) {
-                        programs.put(currentProgram, functions);
+                        programs.put(currentProgram, functions); // 将当前程序及其函数列表存入主 Map
                     }
-                    String[] parts = line.split(" +", 2);
+
+                    // 解析当前程序名
+                    String[] parts = line.split(" +", 2); // 使用正则表达式分割，最多分为两部分
                     if (parts.length > 1) {
-                        currentProgram = parts[1];
-                        functions = new HashMap<>();
+                        currentProgram = parts[1]; // 第二部分是程序名
+                        functions = new HashMap<>(); // 初始化函数列表
                     } else {
+                        // 如果没有足够的字段，打印错误信息并将程序名和函数列表置为空
                         System.err.println("无效的程序名行格式: " + line);
                         currentProgram = null;
                         functions = null;
                     }
-                } else if (!line.isEmpty() && functions != null) {
+                }
+                // 如果当前行不是空行，并且已经解析了一个程序，则解析函数名和大小
+                else if (!line.isEmpty() && functions != null) {
+                    // 按空白字符分割当前行
                     String[] parts = line.split(" +");
                     if (parts.length > 1) {
                         try {
+                            // 第一个字段是函数名
                             String functionName = parts[0];
-                            double functionSize = Double.parseDouble(parts[1]);
-                            functions.put(functionName, functionSize);
+                            // 第二个字段是函数大小（单位：KB）
+                            double functionSize = Double.parseDouble(parts[1]); // 将字符串解析为 double 类型
+                            functions.put(functionName, functionSize); // 将函数名和大小存入当前程序的函数列表
                         } catch (NumberFormatException e) {
+                            // 如果函数大小解析失败，打印错误信息
                             System.err.println("数字解析失败: " + line + " - 错误信息: " + e.getMessage());
                         }
                     } else {
+                        // 如果行的格式无效，打印错误信息
                         System.err.println("无效的函数行格式: " + line);
                     }
                 }
             }
+
+            // 在文件读取完成后，将最后一个程序及其函数列表存入主 Map
             if (currentProgram != null && functions != null) {
                 programs.put(currentProgram, functions);
             }
+
         } catch (IOException e) {
+            // 捕获文件读取过程中的 IO 异常并打印堆栈信息
             e.printStackTrace();
         }
+
+        // 返回解析后的程序和函数映射
         return programs;
     }
 
     public static Map<String, Integer> loadRunSteps() {
-        Map<String, Integer> runTimes = new HashMap<>(); // 存储每个程序的运行时间
-
+        // 定义一个 Map，用于存储每个程序及其对应的运行时间
+        Map<String, Integer> runTimes = new HashMap<>();
+        // 使用 try-with-resources 语法打开文件 run.txt，确保文件流在使用完毕后自动关闭
         try (BufferedReader reader = new BufferedReader(new FileReader("run.txt"))) {
-            String line;
-            String currentProgram = null; // 当前程序名
-            int maxTime = 0; // 当前程序的最大时间
-
+            String line; // 用于存储每次读取的一行数据
+            String currentProgram = null; // 当前正在解析的程序名
+            int maxTime = 0; // 当前程序的最大运行时间
+            // 循环逐行读取文件内容
             while ((line = reader.readLine()) != null) {
+                // 去掉行首和行尾的空白字符
                 line = line.trim();
-                if (line.startsWith("程序名")) { // 检测程序名
+                // 检查当前行是否以 "程序名" 开头，表示该行定义了一个新的程序
+                if (line.startsWith("程序名")) {
+                    // 如果当前已经解析了一个程序，先保存其最大时间到 Map 中
                     if (currentProgram != null) {
-                        runTimes.put(currentProgram, maxTime); // 保存当前程序的最大时间
+                        runTimes.put(currentProgram, maxTime); // 将程序名和对应的最大运行时间存入 Map
                     }
-                    String[] parts = line.split("\\s+", 2);
+                    // 解析新程序名
+                    String[] parts = line.split("\\s+", 2); // 按空白字符分割，最多分成两部分
                     if (parts.length > 1) {
-                        currentProgram = parts[1].trim();
-                        currentProgram = currentProgram.replace("程序", "") + "程序"; // 标准化程序名
-                        maxTime = 0; // 重置最大时间
+                        currentProgram = parts[1].trim(); // 获取程序名部分并去除空格
+                        currentProgram = currentProgram.replace("程序", "") + "程序"; // 标准化程序名格式（如："程序A" 转为 "A程序"）
+                        maxTime = 0; // 初始化最大运行时间为 0
                     }
-                } else if (!line.isEmpty() && currentProgram != null) {
-                    // 解析关键时间点
+                }
+                // 如果当前行不是空行，并且程序名已被解析，则解析时间点
+                else if (!line.isEmpty() && currentProgram != null) {
+                    // 按空白字符分割当前行
                     String[] parts = line.split("\\s+");
                     try {
-                        int time = Integer.parseInt(parts[0]); // 时间点在第一列
-                        maxTime = Math.max(maxTime, time); // 更新最大时间
+                        // 假定第一列是时间点，将其解析为整数
+                        int time = Integer.parseInt(parts[0]);
+                        // 更新最大运行时间，如果当前时间点比之前记录的最大时间更大
+                        maxTime = Math.max(maxTime, time);
                     } catch (NumberFormatException e) {
+                        // 如果时间点解析失败，打印错误信息
                         System.err.println("关键时间点解析失败: " + line);
                     }
                 }
             }
-
-            // 保存最后一个程序的最大时间
+            // 文件读取完成后，保存最后一个程序的最大时间到 Map 中
             if (currentProgram != null) {
                 runTimes.put(currentProgram, maxTime);
             }
         } catch (IOException e) {
+            // 捕获文件读取过程中的 IO 异常并打印堆栈信息
             e.printStackTrace();
         }
+        // 返回存储每个程序及其最大运行时间的 Map
         return runTimes;
     }
 
+
     public static void fcfsScheduling() {
+        // 清空结果文件，以确保每次运行的调度结果不会被之前的内容污染
         clearResultFile();
+
+        // 将进程列表按创建时间（createTime）升序排序，确保先到的进程先被调度
         processList.sort(Comparator.comparingInt(p -> p.createTime));
+
+        // 初始化当前时间为 0，表示调度器的初始时间
         int currentTime = 0;
+
+        // 遍历所有进程，按先来先服务的顺序依次调度
         for (PCB process : processList) {
+            // 如果当前时间小于进程的创建时间，说明当前时间点还没有该进程，需要等待
             if (currentTime < process.createTime) {
-                currentTime = process.createTime;
+                currentTime = process.createTime; // 将当前时间推进到该进程的创建时间
             }
+
+            // 设置进程的开始时间为当前时间
             process.startTime = currentTime;
+
+            // 计算进程的完成时间：当前时间加上进程的运行时间
             process.completeTime = currentTime + process.runTime;
+
+            // 计算周转时间：完成时间减去创建时间
             process.turnoverTime = process.completeTime - process.createTime;
+
+            // 计算带权周转时间：周转时间除以运行时间
             process.weightedTurnoverTime = (double) process.turnoverTime / process.runTime;
+
+            // 输出当前的状态
+            System.out.printf("当前时间: %d | 执行进程: %s | 剩余时间: %d\n",
+                    currentTime, process.pName, process.runTime);
+
+            // 更新当前时间：当前时间加上该进程的运行时间，表示调度器的时间推进
             currentTime += process.runTime;
+
+            // 输出当前队列状态（剩余的进程）
+            System.out.print("当前队列状态（执行后）: ");
+            for (PCB p : processList) {
+                if (p.startTime == -1) { // 仅显示尚未开始运行的进程
+                    System.out.print(p.pName + " ");
+                }
+            }
+            System.out.println();
+
         }
+
+        // 保存调度结果到文件中，并指定调度类型为 "FCFS"（先来先服务）
         saveResults("FCFS");
     }
 
 
+
     public static void rrScheduling() {
+        // 清空结果文件，以确保每次运行的调度结果不会被之前的内容污染
         clearResultFile();
+
+        // 使用队列保存正在运行的进程，用于实现时间片轮转调度
         Queue<PCB> queue = new LinkedList<>();
-        processList.sort(Comparator.comparingInt(p -> p.createTime)); // 按创建时间排序
+
+        // 将进程列表按创建时间（createTime）升序排序，确保进程按到达时间加入队列
+        processList.sort(Comparator.comparingInt(p -> p.createTime));
+
+        // 初始化当前时间为 0，表示调度器从时间点 0 开始
         int currentTime = 0;
+
+        // 初始化索引，用于遍历进程列表
         int index = 0;
 
+        // 创建一个映射表，用于记录每个进程的剩余运行时间
         Map<PCB, Integer> remainingTimeMap = new HashMap<>();
         for (PCB process : processList) {
-            remainingTimeMap.put(process, process.runTime);
+            remainingTimeMap.put(process, process.runTime); // 初始化时，剩余时间等于总运行时间
         }
 
+        // 开始轮转调度，直到队列为空且所有进程都已调度完毕
         while (!queue.isEmpty() || index < processList.size()) {
-            // 等待新进程到达
+
+            // 如果队列为空，但有进程未到达当前时间，推进当前时间至下一个进程的创建时间
             if (queue.isEmpty() && index < processList.size() && processList.get(index).createTime > currentTime) {
                 currentTime = processList.get(index).createTime;
             }
 
-            // 加入当前时间之前到达的所有新进程
+            // 将当前时间之前到达的所有进程加入队列
             while (index < processList.size() && processList.get(index).createTime <= currentTime) {
                 PCB newProcess = processList.get(index);
                 if (!queue.contains(newProcess)) { // 避免重复加入
-                    queue.offer(newProcess); // 加入队列末尾
+                    queue.offer(newProcess); // 将新进程加入队列末尾
                 }
                 index++;
             }
 
-            // 如果队列仍为空，说明没有可调度进程，时间推进
+            // 如果队列仍为空，说明当前时间点没有可调度进程，时间推进
             if (queue.isEmpty()) {
                 currentTime++;
-                continue;
+                continue; // 跳过当前循环，等待下一个时间点
             }
 
-            // 从队列中获取第一个进程
+            // 从队列中取出第一个进程进行调度
             PCB process = queue.poll();
 
-            // 设置进程的首次运行时间
+            // 如果这是进程第一次运行，则设置其开始时间为当前时间
             if (process.startTime == -1) {
                 process.startTime = currentTime;
             }
 
-            // 计算当前时间片内的执行
+            // 获取进程的剩余时间
             int remainingTime = remainingTimeMap.get(process);
+
+            // 计算该进程在当前时间片内可以执行的时间
             int executionTime = Math.min(timeSlice, remainingTime);
+
+            // 更新进程的剩余时间
             remainingTime -= executionTime;
+
+            // 更新当前时间
             currentTime += executionTime;
 
-            // 如果进程还有剩余时间，重新加入队列末尾
+            // 如果进程还有剩余时间，将其重新加入队列末尾
             if (remainingTime > 0) {
-                remainingTimeMap.put(process, remainingTime);
-                queue.offer(process); // 放到队列末尾
+                remainingTimeMap.put(process, remainingTime); // 更新映射表中的剩余时间
+                queue.offer(process); // 将进程重新加入队列末尾
             } else {
-                // 如果进程完成，更新完成时间等信息
-                remainingTimeMap.remove(process);
-                process.completeTime = currentTime;
-                process.turnoverTime = process.completeTime - process.createTime;
-                process.weightedTurnoverTime = (double) process.turnoverTime / process.originalRunTime;
+                // 如果进程运行完毕，更新其完成时间、周转时间和带权周转时间
+                remainingTimeMap.remove(process); // 从映射表中移除该进程
+                process.completeTime = currentTime; // 设置完成时间
+                process.turnoverTime = process.completeTime - process.createTime; // 计算周转时间
+                process.weightedTurnoverTime = (double) process.turnoverTime / process.originalRunTime; // 计算带权周转时间
             }
 
             // 打印调试信息
             System.out.printf("当前时间: %d | 执行进程: %s | 剩余时间: %d\n", currentTime, process.pName, remainingTime);
             System.out.print("当前队列状态（执行后）: ");
-            queue.forEach(p -> System.out.print(p.pName + " "));
-            System.out.println();
+            queue.forEach(p -> System.out.print(p.pName + " ")); // 打印队列中的进程
+            System.out.println(); // 换行
         }
 
+        // 所有进程调度完毕后，将结果保存到文件，并标记调度类型为 "RR"（时间片轮转调度）
         saveResults("RR");
     }
 
+
+    /**
+     * 保存调度结果到文件 "result.txt" 中，并进行格式化输出。
+     *
+     * @param schedulingType 调度类型（例如 "FCFS" 或 "RR"）。
+     */
     public static void saveResults(String schedulingType) {
+        // 检查所有进程的调度结果是否完整
         for (PCB process : processList) {
+            // 如果某个进程的开始时间或完成时间未设置，则抛出异常
             if (process.startTime == -1 || process.completeTime == 0) {
                 throw new IllegalStateException("进程 " + process.pName + " 的调度结果不完整！");
             }
         }
 
+        // 使用 try-with-resources 确保文件写入流在使用完成后自动关闭
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("result.txt"))) {
+            // 写入调度类型的标题，例如 "FCFS 调度结果:"
             writer.write(schedulingType + " 调度结果:\n");
+
+            // 写入表头信息
             writer.write("进程名\t创建时间\t开始时间\t完成时间\t运行时间\t周转时间\t带权周转时间\n");
+
+            // 遍历所有进程，并写入它们的调度结果
             for (PCB process : processList) {
                 writer.write(String.format("%s\t%d\t%d\t%d\t%d\t%d\t%.2f\n",
-                        process.pName, process.createTime, process.startTime, process.completeTime,
-                        process.runTime, process.turnoverTime, process.weightedTurnoverTime));
+                        process.pName,                 // 进程名
+                        process.createTime,            // 进程创建时间
+                        process.startTime,             // 进程开始时间
+                        process.completeTime,          // 进程完成时间
+                        process.runTime,               // 进程运行时间
+                        process.turnoverTime,          // 进程周转时间
+                        process.weightedTurnoverTime   // 进程带权周转时间
+                ));
             }
+
+            // 在控制台输出调试信息，表示调度结果已成功保存
             System.out.println(schedulingType + " 调度结果已保存到 result.txt 文件。");
         } catch (IOException e) {
+            // 捕获并处理可能出现的 IO 异常，例如文件无法写入
             e.printStackTrace();
         }
     }
 
     // 新增方法：根据程序大小计算页面需求
+    /**
+     * 计算每个程序所需的页面数。
+     *
+     * 该方法根据给定的页面大小 `pageSize`，计算每个程序的所有函数的总大小，
+     * 并基于分页机制（向上取整），确定程序所需的总页面数。
+     *
+     * @param programs 包含程序和其函数映射的 Map。键为程序名，值为另一个 Map，
+     *                 其中键为函数名，值为函数大小（单位：KB）。
+     * @param pageSize 单个页面的大小（单位：KB）。
+     * @return 返回一个 Map，其中键为程序名，值为该程序所需的页面数。
+     */
     public static Map<String, Integer> calculatePageRequirements(Map<String, Map<String, Double>> programs, double pageSize) {
+        // 创建一个 Map 来存储每个程序的页面需求
         Map<String, Integer> pageRequirements = new HashMap<>();
+
+        // 遍历程序 Map 的每个条目
         for (Map.Entry<String, Map<String, Double>> entry : programs.entrySet()) {
-            String programName = entry.getKey();
-            double totalSize = entry.getValue().values().stream().mapToDouble(Double::doubleValue).sum(); // 累加函数大小
-            int pages = (int) Math.ceil(totalSize / pageSize); // 根据页面大小计算需要的页面数
+            String programName = entry.getKey(); // 获取程序名
+            // 计算该程序所有函数的总大小（使用 Stream API 进行累加）
+            double totalSize = entry.getValue()
+                    .values() // 获取所有函数大小的值集合
+                    .stream() // 将其转换为流
+                    .mapToDouble(Double::doubleValue) // 转换为 double 流
+                    .sum(); // 计算总和
+
+            // 根据页面大小计算所需的页面数，并向上取整
+            int pages = (int) Math.ceil(totalSize / pageSize);
+
+            // 将程序名和计算出的页面数放入结果 Map 中
             pageRequirements.put(programName, pages);
         }
+
+        // 返回所有程序的页面需求
         return pageRequirements;
     }
 
-    // 修改主方法，调用分页调度机制
+
+    // 调用分页调度机制
+    /**
+     * 页面调度方法。
+     *
+     * 该方法通过分页调度算法（FIFO 或 LRU），模拟程序加载所需页面，并记录页面置换过程和总结报告。
+     * 用户可以动态输入每个进程的最大页面数和选择调度算法。
+     *
+     * @param programs 包含程序及其函数大小的 Map。键为程序名，值为另一个 Map，其中键为函数名，值为函数大小（单位：KB）。
+     */
     public static void pageScheduling(Map<String, Map<String, Double>> programs) {
+        // 输出提示信息，告知正在加载程序页面需求
         System.out.println("加载程序页面需求...");
+
+        // 调用 calculatePageRequirements 方法，计算每个程序所需的页面数
         Map<String, Integer> pageRequirements = calculatePageRequirements(programs, pageSize);
 
+        // 提示用户输入每个进程的最大页面数（内存容量限制）
         System.out.println("请输入每个进程的最大页面数:");
         Scanner scanner = new Scanner(System.in);
-        int maxPages = scanner.nextInt(); // 用户动态设置最大页面数
+        int maxPages = scanner.nextInt(); // 接收用户输入的最大页面数
 
+        // 提示用户选择页面调度算法
         System.out.println("请输入页面调度算法 (1. FIFO  2. LRU):");
-        int choice = scanner.nextInt();
+        int choice = scanner.nextInt(); // 接收用户选择的算法类型（1 表示 FIFO，2 表示 LRU）
 
-        PageManager pageManager = new PageManager(pageSize, maxPages); // 使用动态页面数
+        // 创建一个页面管理器对象，根据页面大小和最大页面数初始化
+        PageManager pageManager = new PageManager(pageSize, maxPages);
 
+        // 输出调度过程开始信息
         System.out.println("页面调度过程:");
-        int currentTime = 0;
+        int currentTime = 0; // 当前时间，用于模拟 LRU 页面最近使用时间
 
+        // 遍历每个程序的页面需求
         for (Map.Entry<String, Integer> entry : pageRequirements.entrySet()) {
-            String programName = entry.getKey();
-            int pages = entry.getValue();
-            System.out.printf("程序 %s 需要 %d 页\n", programName, pages);
+            String programName = entry.getKey(); // 获取程序名
+            int pages = entry.getValue(); // 获取程序需要的页面数
+            System.out.printf("程序 %s 需要 %d 页\n", programName, pages); // 输出程序的页面需求
 
+            // 模拟加载程序所需的页面
             for (int page = 0; page < pages; page++) {
                 if (choice == 1) {
-                    pageManager.fifoReplace(page); // 使用 FIFO 算法
+                    // 如果用户选择 FIFO 调度算法
+                    pageManager.fifoReplace(page); // 调用 FIFO 替换页面方法
                 } else {
-                    pageManager.lruReplace(page, currentTime); // 使用 LRU 算法
+                    // 如果用户选择 LRU 调度算法
+                    pageManager.lruReplace(page, currentTime); // 调用 LRU 替换页面方法
                 }
-                currentTime++;
+                currentTime++; // 模拟时间的推移（用于 LRU 算法记录页面最近使用时间）
             }
         }
 
-        // 输出调度日志
+        // 输出页面置换日志
         System.out.println("\n页面置换日志:");
         for (String logEntry : pageManager.getLog()) {
-            System.out.println(logEntry);
+            System.out.println(logEntry); // 打印每条页面置换日志
         }
 
-        // 输出分页调度总结报告
+        // 输出分页调度总结报告（包括命中率、页面置换次数等信息）
         displayPageSummary(pageManager, pageRequirements);
     }
+
 
     public static void displayPageSummary(PageManager pageManager, Map<String, Integer> pageRequirements) {
         System.out.println("\n分页调度总结报告:");
@@ -433,35 +624,59 @@ public class CPUScheduling {
         }
     }
 
-    // 新增方法：动态模拟 CPU 占用情况
+    // 动态模拟 CPU 占用情况
+    /**
+     * 模拟 CPU 占用情况。
+     *
+     * 该方法读取 `run.txt` 文件，解析程序执行的时间和操作记录，构建 CPU 日志，按照时间顺序动态模拟 CPU 占用情况。
+     *
+     * @param runTimes 包含程序运行时间的 Map。键为程序名，值为对应程序的运行时间。
+     */
     public static void simulateCPU(Map<String, Integer> runTimes) {
+        // 使用 try-with-resources 打开文件 "run.txt"，以确保文件读取完成后自动关闭资源。
         try (BufferedReader reader = new BufferedReader(new FileReader("run.txt"))) {
-            String line;
-            String currentProgram = null;
-            Map<Integer, String> cpuLog = new TreeMap<>();
+            String line; // 用于存储每行内容
+            String currentProgram = null; // 当前正在读取的程序名
+            Map<Integer, String> cpuLog = new TreeMap<>(); // 使用 TreeMap 按时间顺序存储 CPU 操作日志
 
+            // 按行读取文件内容
             while ((line = reader.readLine()) != null) {
-                line = line.trim();
+                line = line.trim(); // 去除首尾空白字符
                 if (line.startsWith("程序名")) {
-                    currentProgram = line.split("\\s+")[1];
+                    // 如果行以 "程序名" 开头，表示程序名的定义
+                    currentProgram = line.split("\\s+")[1]; // 提取程序名并赋值给 currentProgram
                 } else if (!line.isEmpty() && currentProgram != null) {
-                    String[] parts = line.split("\\s+");
-                    int time = Integer.parseInt(parts[0]);
-                    String operation = parts[1];
-                    cpuLog.put(time, "程序 " + currentProgram + ": " + operation);
+                    // 如果当前行非空，且已读取到程序名
+                    String[] parts = line.split("\\s+"); // 按空白字符分割行内容
+                    try {
+                        int time = Integer.parseInt(parts[0]); // 第一个部分为时间点
+                        String operation = parts[1]; // 第二个部分为操作描述
+                        // 将时间点与操作描述加入日志 Map 中
+                        cpuLog.put(time, "程序 " + currentProgram + ": " + operation);
+                    } catch (NumberFormatException e) {
+                        // 捕获时间解析错误
+                        System.err.println("时间解析失败: " + line);
+                    }
                 }
             }
 
+            // 输出动态模拟过程开始提示
             System.out.println("动态模拟 CPU 占用情况...");
+
+            // 遍历日志记录，根据时间顺序逐条输出日志
             for (Map.Entry<Integer, String> entry : cpuLog.entrySet()) {
-                Thread.sleep(1); // 模拟每 1ms 刷新
-                System.out.printf("时间: %dms | %s\n", entry.getKey(), entry.getValue());
+                Thread.sleep(1); // 每次延迟 1 毫秒，模拟时间流逝
+                System.out.printf("时间: %dms | %s\n", entry.getKey(), entry.getValue()); // 输出当前时间和对应操作
             }
+
+            // 输出完成提示
             System.out.println("CPU 占用情况模拟完成！");
         } catch (IOException | InterruptedException e) {
+            // 捕获文件读取或线程中断异常并输出错误堆栈信息
             e.printStackTrace();
         }
     }
+
 
 
 
