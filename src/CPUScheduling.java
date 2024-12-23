@@ -52,7 +52,6 @@ public class CPUScheduling {
             // 如果页面已经在内存中，命中次数加1，记录命中日志
             if (fifoPages.contains(page)) {
                 pageHits++;
-                log.add("FIFO: 页面 " + page + " 已经在内存中 (命中)");
                 displayMemoryState(); // 实时显示内存状态
                 return;
             }
@@ -61,11 +60,9 @@ public class CPUScheduling {
             if (fifoPages.size() >= maxPages) {
                 // 如果内存已满，移除最先进入的页面（FIFO）
                 int removed = fifoPages.removeFirst();
-                log.add("FIFO: 页面 " + removed + " 被移除");
             }
             // 将新页面加载到内存中
             fifoPages.add(page);
-            log.add("FIFO: 页面 " + page + " 被加载");
             displayMemoryState(); // 实时显示内存状态
         }
 
@@ -75,7 +72,6 @@ public class CPUScheduling {
             if (lruPages.containsKey(page)) {
                 pageHits++;
                 lruPages.put(page, currentTime); // 更新页面最近使用时间
-                log.add("LRU: 页面 " + page + " 已经在内存中 (命中)");
                 displayMemoryState(); // 实时显示内存状态
                 return;
             }
@@ -85,17 +81,10 @@ public class CPUScheduling {
                 // 如果内存已满，移除最近最少使用的页面
                 int lruPage = Collections.min(lruPages.entrySet(), Map.Entry.comparingByValue()).getKey();
                 lruPages.remove(lruPage);
-                log.add("LRU: 页面 " + lruPage + " 被移除");
             }
             // 将新页面加载到内存中，记录当前时间
             lruPages.put(page, currentTime);
-            log.add("LRU: 页面 " + page + " 被加载");
             displayMemoryState(); // 实时显示内存状态
-        }
-
-        // 返回日志记录
-        public List<String> getLog() {
-            return log;
         }
 
         // 获取页面错误次数
@@ -116,18 +105,36 @@ public class CPUScheduling {
         // 显示当前内存状态
         public void displayMemoryState() {
             System.out.println("当前内存状态:");
-            System.out.print("|");
-            if (!fifoPages.isEmpty()) { // 如果是 FIFO 算法，使用 fifoPages
-                for (int page : fifoPages) {
-                    System.out.printf(" %d |", page);
+
+            // 创建一个用于显示内存状态的数组，长度为最大内存页数
+            int[] memorySlots = new int[maxPages];
+
+            // 初始化所有内存槽为-1，表示空槽
+            Arrays.fill(memorySlots, -1);
+
+            // 根据FIFO或LRU更新内存槽
+            if (!fifoPages.isEmpty()) { // FIFO页面置换算法
+                for (int i = 0; i < fifoPages.size(); i++) {
+                    memorySlots[i] = fifoPages.get(i); // 将进程页面编号填充到内存槽
                 }
-            } else if (!lruPages.isEmpty()) { // 如果是 LRU 算法，使用 lruPages 的 keySet()
+            } else if (!lruPages.isEmpty()) { // LRU页面置换算法
+                int index = 0;
                 for (int page : lruPages.keySet()) {
-                    System.out.printf(" %d |", page);
+                    memorySlots[index++] = page; // 将进程页面编号填充到内存槽
+                }
+            }
+
+            // 打印内存槽的状态
+            for (int slot : memorySlots) {
+                if (slot == -1) {
+                    System.out.print(" NaN |"); // 空槽
+                } else {
+                    System.out.printf(" %d |", slot); // 显示页面编号
                 }
             }
             System.out.println();
         }
+
     }
 
     // 加载进程信息，从文件读取并创建PCB对象
@@ -243,7 +250,7 @@ public class CPUScheduling {
         }
         return programs;
     }
-
+    //加载run
     public static Map<String, Integer> loadRunSteps() {
         // 定义一个 Map，用于存储每个程序及其对应的运行时间
         Map<String, Integer> runTimes = new HashMap<>();
@@ -294,7 +301,7 @@ public class CPUScheduling {
         return runTimes;
     }
 
-
+    //fcfs调度
     public static void fcfsScheduling() {
         clearResultFile();
 
@@ -343,8 +350,7 @@ public class CPUScheduling {
         saveResults("FCFS");
     }
 
-
-
+    //rr调度
     public static void rrScheduling() {
         clearResultFile();
         // 使用队列保存正在运行的进程，用于实现时间片轮转调度
@@ -426,6 +432,7 @@ public class CPUScheduling {
         saveResults("RR");
     }
 
+    //保存结果
     public static void saveResults(String schedulingType) {
         // 检查所有进程的调度结果是否完整
         for (PCB process : processList) {
@@ -460,7 +467,7 @@ public class CPUScheduling {
         }
     }
 
-
+    //计算程序的页面需求，我用每个程序函数的总大小除以设定的页面大小，来计算程序的页面需求。向上取整
     public static Map<String, Integer> calculatePageRequirements(Map<String, Map<String, Double>> programs, double pageSize) {
         // 创建一个 Map 来存储每个程序的页面需求
         Map<String, Integer> pageRequirements = new HashMap<>();
@@ -475,7 +482,7 @@ public class CPUScheduling {
                     .mapToDouble(Double::doubleValue) // 转换为 double 流
                     .sum(); // 计算总和
 
-            // 根据页面大小计算所需的页面数，并向上取整
+            // 根据页面大小计算所需的页面数，向上取整
             int pages = (int) Math.ceil(totalSize / pageSize);
 
             // 将程序名和计算出的页面数放入结果 Map 中
@@ -527,16 +534,11 @@ public class CPUScheduling {
                 currentTime++; // 模拟时间的推移（用于 LRU 算法记录页面最近使用时间）
             }
         }
-        // 输出页面置换日志
-        System.out.println("\n页面置换日志:");
-        for (String logEntry : pageManager.getLog()) {
-            System.out.println(logEntry); // 打印每条页面置换日志
-        }
         // 输出分页调度总结报告（包括命中率、页面置换次数等信息）
         displayPageSummary(pageManager, pageRequirements);
     }
 
-
+    //分页调度总结报告
     public static void displayPageSummary(PageManager pageManager, Map<String, Integer> pageRequirements) {
         System.out.println("\n分页调度总结报告:");
         for (Map.Entry<String, Integer> entry : pageRequirements.entrySet()) {
@@ -548,7 +550,7 @@ public class CPUScheduling {
         System.out.printf("页面置换次数 (页面错误): %d\n", pageManager.getPageFaults());
         System.out.printf("页面命中率: %.2f%%\n", pageManager.getHitRate() * 100);
     }
-
+    //每次清空result
     public static void clearResultFile() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("result.txt"))) {
             // 清空文件内容，只创建空文件
@@ -557,7 +559,7 @@ public class CPUScheduling {
             e.printStackTrace();
         }
     }
-
+    //动态模拟CPU
     public static void simulateCPU(Map<String, Integer> runTimes) {
         try (BufferedReader reader = new BufferedReader(new FileReader("run.txt"))) {
             String line; // 用于存储每行内容
@@ -617,7 +619,7 @@ public class CPUScheduling {
         while (true) {
             System.out.println("选择功能:");
             System.out.println("1. 查看进程信息\n2. 查看程序详细信息\n3. 查看程序执行步骤\n4. 先来先服务调度\n5. 时间片轮转调度");
-            System.out.println("6. 设置页面大小和时间片长度\n7. 退出\n8. 动态模拟 CPU 占用");
+            System.out.println("6. 设置页面大小和时间片长度\n7. 动态模拟 CPU 占用\n8. 退出");
             int choice = scanner.nextInt();
 
             switch (choice) {
@@ -675,19 +677,15 @@ public class CPUScheduling {
                         pageScheduling(programs);
                     }
                     break;
-
                 case 7:
-                    // 退出程序
-                    System.out.println("退出程序...");
-                    scanner.close();
-                    return;
-
-                case 8:
                     // 动态模拟 CPU 占用情况
                     simulateCPU(runTimes);
                     break;
-
-                default:
+                case 8:
+                    System.out.println("退出程序...");
+                    scanner.close();
+                    return;
+                    default:
                     System.out.println("无效选择，请重新输入！");
             }
         }
