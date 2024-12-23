@@ -13,7 +13,6 @@ class PCB {
     int turnoverTime; // 周转时间
     double weightedTurnoverTime; // 带权周转时间
     int originalRunTime; // 原始运行时间，记录进程的初始运行时间，用于计算周转时间和调度
-
     PCB(String pName, int createTime, int runTime, int grade, String pRemark) {
         this.pName = pName;
         this.createTime = createTime;
@@ -25,7 +24,6 @@ class PCB {
         this.startTime = -1; // 初始化时未开始运行，将开始时间设为 -1（表示未设置）
     }
 }
-
 
 public class CPUScheduling {
     private static final List<PCB> processList = new ArrayList<>();// 存储所有进程的列表
@@ -119,7 +117,6 @@ public class CPUScheduling {
         public void displayMemoryState() {
             System.out.println("当前内存状态:");
             System.out.print("|");
-
             if (!fifoPages.isEmpty()) { // 如果是 FIFO 算法，使用 fifoPages
                 for (int page : fifoPages) {
                     System.out.printf(" %d |", page);
@@ -129,11 +126,8 @@ public class CPUScheduling {
                     System.out.printf(" %d |", page);
                 }
             }
-
             System.out.println();
         }
-
-
     }
 
     // 加载进程信息，从文件读取并创建PCB对象
@@ -187,8 +181,6 @@ public class CPUScheduling {
         // 定义一个键值对，用于存储所有程序和其对应的函数及大小
         // 外层 Map 的 key 是程序名，value 是一个 Map，该 Map 的 key 是函数名，value 是函数的大小
         Map<String, Map<String, Double>> programs = new HashMap<>();
-
-        // 使用 try-with-resources 语法打开文件 program.txt，确保文件流会在使用完毕后自动关闭。
         try (BufferedReader reader = new BufferedReader(new FileReader("program.txt"))) {
             String line; // 每次读取的文件行
             String currentProgram = null; // 当前程序名
