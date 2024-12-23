@@ -2,26 +2,25 @@ import java.io.*;
 import java.util.*;
 
 class PCB {
-    // 成员变量定义，描述进程的各种属性
-    String pName; // 进程名称，例如 "P1"、"P2"
-    String pRemark; // 备注，通常是描述性信息或程序名
-    String pStatus; // 进程状态，例如 "等待"、"运行"、"完成"
-    int createTime; // 创建时间，表示进程进入系统的时间
-    int runTime; // 运行时间，表示进程需要的总运行时间
-    int grade; // 优先级，用于调度算法，值越大可能优先级越高
-    int startTime; // 开始时间，表示进程实际开始运行的时间
-    int completeTime; // 完成时间，表示进程实际完成运行的时间
-    int turnoverTime; // 周转时间，从进程创建到完成所经历的总时间（完成时间 - 创建时间）
-    double weightedTurnoverTime; // 带权周转时间 = 周转时间 / 运行时间，反映运行效率
+    String pName; // 进程名称
+    String pRemark; // 备注
+    String pStatus; // 进程状态
+    int createTime; // 创建时间
+    int runTime; // 运行时间
+    int grade; // 优先级
+    int startTime; // 开始时间
+    int completeTime; // 完成时间
+    int turnoverTime; // 周转时间
+    double weightedTurnoverTime; // 带权周转时间
     int originalRunTime; // 原始运行时间，记录进程的初始运行时间，用于计算周转时间和调度
 
     PCB(String pName, int createTime, int runTime, int grade, String pRemark) {
-        this.pName = pName; // 设置进程名称
-        this.createTime = createTime; // 设置进程创建时间
-        this.runTime = runTime; // 设置进程的运行时间
-        this.originalRunTime = runTime; // 初始化时记录原始运行时间，便于后续计算
-        this.grade = grade; // 设置进程的优先级
-        this.pRemark = pRemark; // 设置备注信息，例如与进程相关的附加说明
+        this.pName = pName;
+        this.createTime = createTime;
+        this.runTime = runTime;
+        this.originalRunTime = runTime;
+        this.grade = grade;
+        this.pRemark = pRemark;
         this.pStatus = "等待"; // 初始化时将进程状态设置为“等待”
         this.startTime = -1; // 初始化时未开始运行，将开始时间设为 -1（表示未设置）
     }
@@ -29,13 +28,9 @@ class PCB {
 
 
 public class CPUScheduling {
-    // 静态变量，存储进程列表、页面大小和时间片长度
     private static final List<PCB> processList = new ArrayList<>();// 存储所有进程的列表
     private static double pageSize = 2.2;// 默认页面大小，单位 KB
     private static int timeSlice = 25;// 默认时间片长度，单位 ms
-
-
-
     static class PageManager {
         private final double pageSize; // 页面大小
         private final int maxPages; // 最大页面数量
@@ -44,7 +39,6 @@ public class CPUScheduling {
         private final List<String> log; // 存储页面置换的日志记录
         private int pageFaults; // 页面错误次数（缺页次数）
         private int pageHits; // 页面命中次数
-        // 构造函数，初始化页面管理工具
         PageManager(double pageSize, int maxPages) {
             this.pageSize = pageSize;
             this.maxPages = maxPages;
@@ -144,15 +138,11 @@ public class CPUScheduling {
 
     // 加载进程信息，从文件读取并创建PCB对象
     public static void loadProcesses(Map<String, Integer> runTimes) {
-        // 使用 try-with-resources 确保 BufferedReader 在使用后自动关闭
         try (BufferedReader reader = new BufferedReader(new FileReader("Process.txt"))) {
             String line; // 用于存储每行读取的内容
-
-            // 按行读取文件内容
             while ((line = reader.readLine()) != null) {
                 // 将当前行按照制表符（\t）分割成多个部分
                 String[] parts = line.split("\t");
-
                 // 如果当前行的分割部分少于 4，则说明格式不符合要求，打印错误信息并跳过
                 if (parts.length < 4) {
                     System.err.println("无效的行格式: " + line);
@@ -194,8 +184,8 @@ public class CPUScheduling {
 
     //加载程序
     public static Map<String, Map<String, Double>> loadPrograms() {
-        // 定义一个 Map，用于存储所有程序和其对应的函数及大小。
-        // 外层 Map 的 key 是程序名，value 是一个 Map，该 Map 的 key 是函数名，value 是函数的大小（单位：KB）。
+        // 定义一个键值对，用于存储所有程序和其对应的函数及大小
+        // 外层 Map 的 key 是程序名，value 是一个 Map，该 Map 的 key 是函数名，value 是函数的大小
         Map<String, Map<String, Double>> programs = new HashMap<>();
 
         // 使用 try-with-resources 语法打开文件 program.txt，确保文件流会在使用完毕后自动关闭。
@@ -259,15 +249,12 @@ public class CPUScheduling {
             // 捕获文件读取过程中的 IO 异常并打印堆栈信息
             e.printStackTrace();
         }
-
-        // 返回解析后的程序和函数映射
         return programs;
     }
 
     public static Map<String, Integer> loadRunSteps() {
         // 定义一个 Map，用于存储每个程序及其对应的运行时间
         Map<String, Integer> runTimes = new HashMap<>();
-        // 使用 try-with-resources 语法打开文件 run.txt，确保文件流在使用完毕后自动关闭
         try (BufferedReader reader = new BufferedReader(new FileReader("run.txt"))) {
             String line; // 用于存储每次读取的一行数据
             String currentProgram = null; // 当前正在解析的程序名
@@ -300,7 +287,6 @@ public class CPUScheduling {
                         // 更新最大运行时间，如果当前时间点比之前记录的最大时间更大
                         maxTime = Math.max(maxTime, time);
                     } catch (NumberFormatException e) {
-                        // 如果时间点解析失败，打印错误信息
                         System.err.println("关键时间点解析失败: " + line);
                     }
                 }
@@ -313,16 +299,14 @@ public class CPUScheduling {
             // 捕获文件读取过程中的 IO 异常并打印堆栈信息
             e.printStackTrace();
         }
-        // 返回存储每个程序及其最大运行时间的 Map
         return runTimes;
     }
 
 
     public static void fcfsScheduling() {
-        // 清空结果文件，以确保每次运行的调度结果不会被之前的内容污染
         clearResultFile();
 
-        // 将进程列表按创建时间（createTime）升序排序，确保先到的进程先被调度
+        // 将进程列表按创建时间升序排序，确保先到的进程先被调度
         processList.sort(Comparator.comparingInt(p -> p.createTime));
 
         // 初始化当前时间为 0，表示调度器的初始时间
@@ -364,21 +348,16 @@ public class CPUScheduling {
             System.out.println();
 
         }
-
-        // 保存调度结果到文件中，并指定调度类型为 "FCFS"（先来先服务）
         saveResults("FCFS");
     }
 
 
 
     public static void rrScheduling() {
-        // 清空结果文件，以确保每次运行的调度结果不会被之前的内容污染
         clearResultFile();
-
         // 使用队列保存正在运行的进程，用于实现时间片轮转调度
         Queue<PCB> queue = new LinkedList<>();
-
-        // 将进程列表按创建时间（createTime）升序排序，确保进程按到达时间加入队列
+        // 将进程列表按创建时间升序排序，确保进程按到达时间加入队列
         processList.sort(Comparator.comparingInt(p -> p.createTime));
 
         // 初始化当前时间为 0，表示调度器从时间点 0 开始
@@ -447,24 +426,14 @@ public class CPUScheduling {
                 process.turnoverTime = process.completeTime - process.createTime; // 计算周转时间
                 process.weightedTurnoverTime = (double) process.turnoverTime / process.originalRunTime; // 计算带权周转时间
             }
-
-            // 打印调试信息
             System.out.printf("当前时间: %d | 执行进程: %s | 剩余时间: %d\n", currentTime, process.pName, remainingTime);
             System.out.print("当前队列状态（执行后）: ");
             queue.forEach(p -> System.out.print(p.pName + " ")); // 打印队列中的进程
             System.out.println(); // 换行
         }
-
-        // 所有进程调度完毕后，将结果保存到文件，并标记调度类型为 "RR"（时间片轮转调度）
         saveResults("RR");
     }
 
-
-    /**
-     * 保存调度结果到文件 "result.txt" 中，并进行格式化输出。
-     *
-     * @param schedulingType 调度类型（例如 "FCFS" 或 "RR"）。
-     */
     public static void saveResults(String schedulingType) {
         // 检查所有进程的调度结果是否完整
         for (PCB process : processList) {
@@ -473,8 +442,6 @@ public class CPUScheduling {
                 throw new IllegalStateException("进程 " + process.pName + " 的调度结果不完整！");
             }
         }
-
-        // 使用 try-with-resources 确保文件写入流在使用完成后自动关闭
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("result.txt"))) {
             // 写入调度类型的标题，例如 "FCFS 调度结果:"
             writer.write(schedulingType + " 调度结果:\n");
@@ -485,36 +452,23 @@ public class CPUScheduling {
             // 遍历所有进程，并写入它们的调度结果
             for (PCB process : processList) {
                 writer.write(String.format("%s\t%d\t%d\t%d\t%d\t%d\t%.2f\n",
-                        process.pName,                 // 进程名
-                        process.createTime,            // 进程创建时间
-                        process.startTime,             // 进程开始时间
-                        process.completeTime,          // 进程完成时间
-                        process.runTime,               // 进程运行时间
-                        process.turnoverTime,          // 进程周转时间
-                        process.weightedTurnoverTime   // 进程带权周转时间
+                        process.pName,
+                        process.createTime,
+                        process.startTime,
+                        process.completeTime,
+                        process.runTime,
+                        process.turnoverTime,
+                        process.weightedTurnoverTime
                 ));
             }
-
             // 在控制台输出调试信息，表示调度结果已成功保存
             System.out.println(schedulingType + " 调度结果已保存到 result.txt 文件。");
         } catch (IOException e) {
-            // 捕获并处理可能出现的 IO 异常，例如文件无法写入
             e.printStackTrace();
         }
     }
 
-    // 新增方法：根据程序大小计算页面需求
-    /**
-     * 计算每个程序所需的页面数。
-     *
-     * 该方法根据给定的页面大小 `pageSize`，计算每个程序的所有函数的总大小，
-     * 并基于分页机制（向上取整），确定程序所需的总页面数。
-     *
-     * @param programs 包含程序和其函数映射的 Map。键为程序名，值为另一个 Map，
-     *                 其中键为函数名，值为函数大小（单位：KB）。
-     * @param pageSize 单个页面的大小（单位：KB）。
-     * @return 返回一个 Map，其中键为程序名，值为该程序所需的页面数。
-     */
+
     public static Map<String, Integer> calculatePageRequirements(Map<String, Map<String, Double>> programs, double pageSize) {
         // 创建一个 Map 来存储每个程序的页面需求
         Map<String, Integer> pageRequirements = new HashMap<>();
@@ -535,22 +489,13 @@ public class CPUScheduling {
             // 将程序名和计算出的页面数放入结果 Map 中
             pageRequirements.put(programName, pages);
         }
-
         // 返回所有程序的页面需求
         return pageRequirements;
     }
 
 
-    // 调用分页调度机制
-    /**
-     * 页面调度方法。
-     *
-     * 该方法通过分页调度算法（FIFO 或 LRU），模拟程序加载所需页面，并记录页面置换过程和总结报告。
-     * 用户可以动态输入每个进程的最大页面数和选择调度算法。
-     *
-     * @param programs 包含程序及其函数大小的 Map。键为程序名，值为另一个 Map，其中键为函数名，值为函数大小（单位：KB）。
-     */
     public static void pageScheduling(Map<String, Map<String, Double>> programs) {
+        //包含程序及其函数大小的 Map。键为程序名，值为另一个 Map，其中键为函数名，值为函数大小
         // 输出提示信息，告知正在加载程序页面需求
         System.out.println("加载程序页面需求...");
 
@@ -578,7 +523,6 @@ public class CPUScheduling {
             String programName = entry.getKey(); // 获取程序名
             int pages = entry.getValue(); // 获取程序需要的页面数
             System.out.printf("程序 %s 需要 %d 页\n", programName, pages); // 输出程序的页面需求
-
             // 模拟加载程序所需的页面
             for (int page = 0; page < pages; page++) {
                 if (choice == 1) {
@@ -591,13 +535,11 @@ public class CPUScheduling {
                 currentTime++; // 模拟时间的推移（用于 LRU 算法记录页面最近使用时间）
             }
         }
-
         // 输出页面置换日志
         System.out.println("\n页面置换日志:");
         for (String logEntry : pageManager.getLog()) {
             System.out.println(logEntry); // 打印每条页面置换日志
         }
-
         // 输出分页调度总结报告（包括命中率、页面置换次数等信息）
         displayPageSummary(pageManager, pageRequirements);
     }
@@ -624,21 +566,11 @@ public class CPUScheduling {
         }
     }
 
-    // 动态模拟 CPU 占用情况
-    /**
-     * 模拟 CPU 占用情况。
-     *
-     * 该方法读取 `run.txt` 文件，解析程序执行的时间和操作记录，构建 CPU 日志，按照时间顺序动态模拟 CPU 占用情况。
-     *
-     * @param runTimes 包含程序运行时间的 Map。键为程序名，值为对应程序的运行时间。
-     */
     public static void simulateCPU(Map<String, Integer> runTimes) {
-        // 使用 try-with-resources 打开文件 "run.txt"，以确保文件读取完成后自动关闭资源。
         try (BufferedReader reader = new BufferedReader(new FileReader("run.txt"))) {
             String line; // 用于存储每行内容
             String currentProgram = null; // 当前正在读取的程序名
             Map<Integer, String> cpuLog = new TreeMap<>(); // 使用 TreeMap 按时间顺序存储 CPU 操作日志
-
             // 按行读取文件内容
             while ((line = reader.readLine()) != null) {
                 line = line.trim(); // 去除首尾空白字符
@@ -659,20 +591,15 @@ public class CPUScheduling {
                     }
                 }
             }
-
             // 输出动态模拟过程开始提示
             System.out.println("动态模拟 CPU 占用情况...");
-
             // 遍历日志记录，根据时间顺序逐条输出日志
             for (Map.Entry<Integer, String> entry : cpuLog.entrySet()) {
                 Thread.sleep(1); // 每次延迟 1 毫秒，模拟时间流逝
                 System.out.printf("时间: %dms | %s\n", entry.getKey(), entry.getValue()); // 输出当前时间和对应操作
             }
-
-            // 输出完成提示
             System.out.println("CPU 占用情况模拟完成！");
         } catch (IOException | InterruptedException e) {
-            // 捕获文件读取或线程中断异常并输出错误堆栈信息
             e.printStackTrace();
         }
     }
