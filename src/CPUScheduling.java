@@ -1,4 +1,5 @@
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.*;
 
 class PCB {
@@ -303,51 +304,91 @@ public class CPUScheduling {
 
     //fcfs调度
     public static void fcfsScheduling() {
-        clearResultFile();
+        clearResultFile();  // 清空输出文件
 
-        // 将进程列表按创建时间升序排序，确保先到的进程先被调度
+        // 按创建时间排序进程列表
         processList.sort(Comparator.comparingInt(p -> p.createTime));
 
-        // 初始化当前时间为 0，表示调度器的初始时间
-        int currentTime = 0;
+        int currentTime = 0;  // 当前时间初始化为0
 
-        // 遍历所有进程，按先来先服务的顺序依次调度
-        for (PCB process : processList) {
-            // 如果当前时间小于进程的创建时间，说明当前时间点还没有该进程，需要等待
-            if (currentTime < process.createTime) {
-                currentTime = process.createTime; // 将当前时间推进到该进程的创建时间
+        // 初始化进程状态，所有进程在开始前的状态设为null
+        initializeProcessStatus(); // 确保每次调度前进程状态被初始化
+
+        // 打开文件以写入结果
+        try (BufferedWriter resultFile = new BufferedWriter(new FileWriter("result.txt"))) {
+            // 输出表头
+            resultFile.write("时间\t运行的进程\t");
+            for (PCB process : processList) {
+                resultFile.write("进程 " + process.pName + " 状态\t");
             }
+            resultFile.write("\n");
 
-            // 设置进程的开始时间为当前时间
-            process.startTime = currentTime;
-
-            // 计算进程的完成时间：当前时间加上进程的运行时间
-            process.completeTime = currentTime + process.runTime;
-
-            // 计算周转时间：完成时间减去创建时间
-            process.turnoverTime = process.completeTime - process.createTime;
-
-            // 计算带权周转时间：周转时间除以运行时间
-            process.weightedTurnoverTime = (double) process.turnoverTime / process.runTime;
-
-            // 输出当前的状态
-            System.out.printf("当前时间: %d | 执行进程: %s | 剩余时间: %d\n",
-                    currentTime, process.pName, process.runTime);
-
-            // 更新当前时间：当前时间加上该进程的运行时间，表示调度器的时间推进
-            currentTime += process.runTime;
-
-            // 输出当前队列状态（剩余的进程）
-            System.out.print("当前队列状态（执行后）: ");
-            for (PCB p : processList) {
-                if (p.startTime == -1) { // 仅显示尚未开始运行的进程
-                    System.out.print(p.pName + " ");
+            // 调度过程
+            for (PCB process : processList) {
+                if (currentTime < process.createTime) {
+                    currentTime = process.createTime; // 等待进程到达
                 }
-            }
-            System.out.println();
+                process.startTime = currentTime; // 记录开始时间
+                process.completeTime = currentTime + process.runTime; // 记录完成时间
 
+                // 每个时间片动态更新状态
+                for (int t = 0; t < process.runTime; ++t) {
+                    resultFile.write((currentTime + t) + "\t" + process.pName + "\t");
+
+                    // 遍历所有进程，更新状态
+                    for (PCB p : processList) {
+                        // 当前运行的进程
+                        if (p.pName.equals(process.pName)) {
+                            p.pStatus = "run";  // 设置为运行
+                        }
+                        // 已完成的进程
+                        else if (p.completeTime <= currentTime + t) {
+                            p.pStatus = "complete";  // 设置为完成
+                        }
+                        // 尚未到达的进程
+                        else if (p.createTime > currentTime + t) {
+                            p.pStatus = "null";  // 设置为null（尚未到达）
+                        }
+                        // 已到达但未运行的进程
+                        else {
+                            p.pStatus = "ready";  // 设置为准备
+                        }
+                        resultFile.write(p.pStatus + "\t");  // 输出进程状态
+                    }
+                    resultFile.write("\n");
+                }
+
+                // 更新时间到进程完成时
+                currentTime += process.runTime;
+
+                // 计算并记录统计信息
+                process.turnoverTime = process.completeTime - process.createTime;  // 周转时间
+                process.weightedTurnoverTime = (double) process.turnoverTime / process.runTime;  // 带权周转时间
+            }
+
+            // 输出每个进程的最终统计信息
+            resultFile.write("\n最终统计信息：\n");
+            DecimalFormat df = new DecimalFormat("0.00"); // 设置带两位小数的格式
+            for (PCB process : processList) {
+                resultFile.write("进程名称: " + process.pName
+                        + ", 开始时间: " + process.startTime
+                        + ", 完成时间: " + process.completeTime
+                        + ", 周转时间: " + process.turnoverTime
+                        + ", 带权周转时间: " + df.format(process.weightedTurnoverTime) + "\n");
+            }
+
+            System.out.println("FCFS调度完成，结果已保存到 result.txt");
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        saveResults("FCFS");
+    }
+
+    // 初始化状态为null
+    private static void initializeProcessStatus() {
+        for (PCB process : processList) {
+            process.pStatus = "null";
+        }
     }
 
     //rr调度
